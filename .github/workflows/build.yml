@@ -1,0 +1,34 @@
+name: Build injectable dylib
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu‑latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Prepare iOS SDK
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang libxml2-dev
+          git clone https://github.com/osy/ios-sdk.git $GITHUB_WORKSPACE/ios-sdk
+
+      - name: Compile inject_test.dylib (arm64 iOS)
+        run: |
+          clang-18 \
+            -arch arm64 \
+            -isysroot ./ios-sdk/iPhoneOS.sdk \
+            -fPIC -shared \
+            -framework Foundation -framework UIKit \
+            inject_test.c \
+            -o inject_test.dylib
+
+      - name: Download artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: inject‑dylib‑output
+          path: inject_test.dylib
