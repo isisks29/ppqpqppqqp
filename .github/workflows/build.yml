@@ -10,33 +10,19 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Compile iOS Dylib
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang lld xz-utils
-
-      - name: Download iOS SDK
-        run: |
-          # 修正分支名为 iOS15.0
-          git clone --depth 1 --branch iOS15.0 https://github.com/xybp888/iOS-SDKs.git /tmp/iOS-SDKs
-          # 找到 SDK 路径
-          SDK_PATH=$(find /tmp/iOS-SDKs -maxdepth 1 -name "iPhoneOS*.sdk" -type d | head -1)
-          echo "SDK_PATH=$SDK_PATH" >> $GITHUB_ENV
-          echo "Found SDK: $SDK_PATH"
-
-      - name: Compile Dylib
-        run: |
+          SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
           clang -target arm64-apple-ios15.0 \
-            -isysroot $SDK_PATH \
+            -isysroot "$SDK_PATH" \
             -dynamiclib \
             -fobjc-arc \
-            -fuse-ld=lld \
             -o inject_test.dylib \
             inject_test.c
 
