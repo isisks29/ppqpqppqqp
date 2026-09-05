@@ -18,43 +18,43 @@ jobs:
 
       - name: Prepare Environment & SDK
         run: |
-          # 1. 下载并安装官方完整版 LLVM (支持 ARM64 交叉编译)
-          echo "Installing official LLVM..."
-          wget https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.7/clang+llvm-15.0.7-x86_64-linux-gnu-ubuntu-18.04.tar.xz
-          tar -xf clang+llvm-15.0.7-x86_64-linux-gnu-ubuntu-18.04.tar.xz
-          export PATH=$GITHUB_WORKSPACE/clang+llvm-15.0.7-x86_64-linux-gnu-ubuntu-18.04/bin:$PATH
+          # 1. 安装基础编译工具和 ldid (用于签名)
+          sudo apt-get update
+          sudo apt-get install -y clang ldid git
           
-          # 2. 下载 SDK
+          # 2. 下载 SDK (使用 xybp888 的仓库)
           echo "Downloading iOS SDK..."
           git clone --depth 1 https://github.com/xybp888/iOS-SDKs.git $GITHUB_WORKSPACE/ios-sdk
           
           # 3. 自动寻找 SDK 路径
           SDK_PATH=$(find $GITHUB_WORKSPACE/ios-sdk -maxdepth 3 -type d -name '*iPhoneOS*' | head -n 1)
-          echo "Using SDK at: $SDK_PATH"
+          echo "Found SDK at: $SDK_PATH"
           
-          # 4. 验证编译器是否识别 ARM64
-          clang -arch arm64 -dM -E - < /dev/null | grep __arm64__ || (echo "Error: Compiler does not support ARM64"; exit 1)
+          # 将路径保存为环境变量供下一步使用
+          echo "SDK_PATH=$SDK_PATH" >> $GITHUB_ENV
 
       - name: Compile Dylib
         run: |
-          # 重新设置环境变量 (GitHub Actions 的每个 run 块环境是隔离的)
-          export PATH=$GITHUB_WORKSPACE/clang+llvm-15.0.7-x86_64-linux-gnu-ubuntu-18.04/bin:$PATH
-          SDK_PATH=$(find $GITHUB_WORKSPACE/ios-sdk -maxdepth 3 -type d -name '*iPhoneOS*' | head -n 1)
-          
-          # 执行编译
+          # 使用系统自带的 clang 进行交叉编译
+          # 注意：这里必须指定 -target arm64-apple-ios
           clang -arch arm64 \
-            -isysroot $SDK_PATH \
-            -mios-version-min=13.0 \
-            -dynamiclib \
-            -fobjc-arc \
-            -o inject_test.dylib \
-            inject_test.c
-            
-          echo "Build successful!"
-          ls -lh inject_test.dylib
+                -isysroot $SDK_PATH \
+                -mios-version-min=13.0 \
+                -dynamiclib \
+                -fobjc-arc \
+                -o inject_test.dylib \
+                inject_test.c
+          
+          echo "Compilation finished."
+
+      - name: Sign Dylib (Optional but recommended)
+        run: |
+          # 使用 ldid 进行伪签名，确保在越狱设备上能加载
+          ldid -S inject_test.dylib
+          echo "Signing finished."
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: injectable-dylib
+          name: inject_test_dylib
           path: inject_test.dylib
