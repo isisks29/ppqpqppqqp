@@ -22,8 +22,10 @@ jobs:
       - name: Prepare iOS SDK
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang libxml2-dev
-          git clone https://github.com/osy/ios-sdk.git $GITHUB_WORKSPACE/ios-sdk
+          sudo apt-get install -y clang libxml2-dev unzip
+          wget -q https://github.com/xybp888/iOS-SDKs/archive/refs/heads/master.zip -O ios-sdk.zip
+          unzip -q ios-sdk.zip
+          mv iOS-SDKs-master $GITHUB_WORKSPACE/ios-sdk
 
       - name: Compile inject_test.dylib (arm64 iOS)
         run: |
