@@ -25,25 +25,25 @@ jobs:
           # 2. 克隆 osxcross 仓库
           git clone https://github.com/tpoechtrager/osxcross.git $GITHUB_WORKSPACE/osxcross
 
-          # 3. 下载 SDK (osxcross 需要一个 SDK 来编译)
-          # 我们使用一个较小的 SDK 版本，避免下载整个 xybp888 仓库
+          # 3. 下载 SDK
           git clone --depth 1 --branch 11.3 https://github.com/phracker/MacOSX-SDKs.git $GITHUB_WORKSPACE/MacOSX-SDKs
-          mv $GITHUB_WORKSPACE/MacOSX-SDKs/MacOSX11.3.sdk $GITHUB_WORKSPACE/osxcross/SDK/
           
-          # 4. 编译 osxcross 工具链
+          # 4. 将 SDK 移动到 osxcross 期望的 tarballs 目录，并重命名为 .tar.xz 格式
+          mkdir -p $GITHUB_WORKSPACE/osxcross/tarballs
+          mv $GITHUB_WORKSPACE/MacOSX-SDKs/MacOSX11.3.sdk $GITHUB_WORKSPACE/osxcross/tarballs/MacOSX11.3.sdk.tar.xz
+          
+          # 5. 编译 osxcross 工具链
           cd $GITHUB_WORKSPACE/osxcross
           UNATTENDED=yes ./build.sh
 
       - name: Compile Dylib
         run: |
-          # 5. 将 osxcross 的 bin 目录添加到 PATH
+          # 6. 将 osxcross 的 bin 目录添加到 PATH
           export PATH=$GITHUB_WORKSPACE/osxcross/target/bin:$PATH
 
-          # 6. 使用 osxcross 提供的 clang 进行编译
+          # 7. 使用 osxcross 提供的 clang 进行编译
           # -target arm64-apple-ios 指定了目标平台和架构
-          # -isysroot 指向 osxcross 自带的 SDK
           o64-clang -target arm64-apple-ios \
-            -isysroot $GITHUB_WORKSPACE/osxcross/SDK/MacOSX11.3.sdk \
             -mios-version-min=13.0 \
             -dynamiclib \
             -fobjc-arc \
