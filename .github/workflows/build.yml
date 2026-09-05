@@ -18,7 +18,10 @@ jobs:
 
       - name: Prepare Environment & SDK
         run: |
-          # 1. 安装 clang-15 (比默认的 clang-18 兼容性更好，且支持 ubuntu-24.04)
+          # 开启调试模式，打印每一步执行的命令
+          set -x 
+          
+          # 1. 安装 clang-15 (Ubuntu 24.04 下最稳定的版本)
           sudo apt-get update
           sudo apt-get install -y clang-15 libxml2-dev
           
@@ -27,30 +30,38 @@ jobs:
           git clone --depth 1 https://github.com/xybp888/iOS-SDKs.git $GITHUB_WORKSPACE/ios-sdk
           
           # 3. 自动寻找 SDK 路径 (解决目录结构变动问题)
-          # 逻辑：先找 iPhoneOS.sdk，找不到就找 iPhoneOS*.sdk
-          SDK_PATH=$(find $GITHUB_WORKSPACE/ios-sdk -maxdepth 3 -type d -name "iPhoneOS.sdk" | head -n 1)
+          # 这里的逻辑是：在 ios-sdk 文件夹里找名字包含 iPhoneOS 的文件夹
+          SDK_PATH=$(find $GITHUB_WORKSPACE/ios-sdk -maxdepth 3 -type d -name "*iPhoneOS*" | head -n 1)
+          
           if [ -z "$SDK_PATH" ]; then
-             SDK_PATH=$(find $GITHUB_WORKSPACE/ios-sdk -maxdepth 3 -type d -name "iPhoneOS*.sdk" | sort | tail -n 1)
+            echo "Error: Could not find iPhoneOS SDK folder!"
+            ls -R $GITHUB_WORKSPACE/ios-sdk
+            exit 1
           fi
           
           echo "Found SDK at: $SDK_PATH"
-          echo "SDK_PATH=$SDK_PATH" >> $GITHUB_ENV
 
       - name: Compile Dylib
         run: |
-          # 使用找到的 SDK 路径进行编译
-          # -target arm64-apple-ios14.0: 指定目标架构和最低版本
-          # -fobjc-arc: 开启自动引用计数
-          clang-15 -arch arm64 -isysroot ${{ env.SDK_PATH }} \
-            -mios-version-min=14.0 \
+          set -x
+          
+          # 重新获取 SDK 路径变量
+          SDK_PATH=$(find $GITHUB_WORKSPACE/ios-sdk -maxdepth 3 -type d -name "*iPhoneOS*" | head -n 1)
+          
+          # 编译命令
+          # -v 参数非常重要，它会打印出编译器到底去哪找了头文件
+          clang-15 -arch arm64 -isysroot "$SDK_PATH" \
+            -mios-version-min=13.0 \
+            -dynamiclib \
             -fobjc-arc \
-            -shared -o inject.dylib inject_test.c
+            -o inject_test.dylib \
+            inject_test.c -v
             
-          echo "Build finished! Checking file type:"
-          file inject.dylib
+          echo "Build finished. Checking file type:"
+          file inject_test.dylib
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: injectable-dylib
-          path: inject.dylib
+          path: inject_test.dylib
