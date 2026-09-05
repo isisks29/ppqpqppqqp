@@ -8,34 +8,41 @@ on:
       - '.github/workflows/build.yml'
   workflow_dispatch:
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   build:
     runs-on: ubuntu-latest
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Prepare iOS SDK
+      - name: Prepare Environment & SDK
         run: |
+          # 1. 安装较稳定的 clang-14 (比 clang-18 兼容性更好)
           sudo apt-get update
-          sudo apt-get install -y clang libxml2-dev unzip
-          wget -q https://github.com/xybp888/iOS-SDKs/archive/refs/heads/master.zip -O ios-sdk.zip
-          unzip -q ios-sdk.zip
-          mv iOS-SDKs-master $GITHUB_WORKSPACE/ios-sdk
+          sudo apt-get install -y clang-14 libxml2-dev
+          
+          # 2. 克隆 SDK 仓库
+          git clone --depth 1 https://github.com/xybp888/iOS-SDKs.git ./ios-sdk-repo
+          
+          # 3. 自动查找并设置 SDK 路径 (解决目录名不匹配问题)
+          # 这里的逻辑是：找到 repo 下所有以 iPhoneOS 开头的文件夹，取最后一个（通常是最新版）
+          export SDK_PATH=$(ls -d ./ios-sdk-repo/iPhoneOS*.sdk | tail -n 1)
+          echo "Using SDK at: $SDK_PATH"
+          echo "SDK_PATH=$SDK_PATH" >> $GITHUB_ENV
 
-      - name: Compile inject_test.dylib (arm64 iOS)
+      - name: Compile inject_test.dylib
         run: |
-          clang-18 \
+          # 使用 clang-14 进行编译
+          clang-14 \
             -arch arm64 \
-            -isysroot ./ios-sdk/iPhoneOS.sdk \
+            -isysroot ${{ env.SDK_PATH }} \
+            -miphoneos-version-min=14.0 \
             -fPIC -shared \
             -framework Foundation -framework UIKit \
             inject_test.c \
-            -o inject_test.dylib
+            -o inject_test.dylib \
+            -v  # -v 参数会打印详细编译过程，方便出错时看日志
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
