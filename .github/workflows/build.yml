@@ -1,12 +1,20 @@
 name: Build injectable dylib
+
 on:
   push:
-    branches: [ main ]
+    branches: [main]
+    paths:
+      - 'inject_test.c'
+      - '.github/workflows/build.yml'
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
-    runs-on: ubuntu‑latest
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -27,8 +35,8 @@ jobs:
             inject_test.c \
             -o inject_test.dylib
 
-      - name: Download artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: inject‑dylib‑output
+          name: inject-dylib-output
           path: inject_test.dylib
