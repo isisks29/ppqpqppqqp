@@ -18,34 +18,45 @@ jobs:
 
       - name: Prepare Environment & SDK
         run: |
-          # 1. 安装较稳定的 clang-14 (比 clang-18 兼容性更好)
+          # 1. 安装 clang-15 (Ubuntu 24.04 下最稳定的版本)
           sudo apt-get update
-          sudo apt-get install -y clang-14 libxml2-dev
+          sudo apt-get install -y clang-15 libxml2-dev
           
-          # 2. 克隆 SDK 仓库
-          git clone --depth 1 https://github.com/xybp888/iOS-SDKs.git ./ios-sdk-repo
+          # 2. 下载 SDK
+          echo "Downloading iOS SDK..."
+          git clone --depth 1 https://github.com/xybp888/iOS-SDKs.git $GITHUB_WORKSPACE/ios-sdk
           
-          # 3. 自动查找并设置 SDK 路径 (解决目录名不匹配问题)
-          # 这里的逻辑是：找到 repo 下所有以 iPhoneOS 开头的文件夹，取最后一个（通常是最新版）
-          export SDK_PATH=$(ls -d ./ios-sdk-repo/iPhoneOS*.sdk | tail -n 1)
-          echo "Using SDK at: $SDK_PATH"
-          echo "SDK_PATH=$SDK_PATH" >> $GITHUB_ENV
+          # 3. 自动寻找 SDK 路径 (关键修复：注意这里多了一层 /SDKs)
+          # 该仓库结构通常是 ios-sdk/SDKs/iPhoneOS16.x.sdk
+          SDK_PATH=$(find $GITHUB_WORKSPACE/ios-sdk/SDKs -maxdepth 1 -type d -name "iPhoneOS*.sdk" | head -n 1)
+          
+          if [ -z "$SDK_PATH" ]; then
+            echo "Error: iPhoneOS SDK not found!"
+            ls -R $GITHUB_WORKSPACE/ios-sdk
+            exit 1
+          fi
+          
+          echo "Found SDK at: $SDK_PATH"
+          echo "IOS_SDK_PATH=$SDK_PATH" >> $GITHUB_ENV
 
       - name: Compile inject_test.dylib
         run: |
-          # 使用 clang-14 进行编译
-          clang-14 \
+          # 使用 clang-15 进行编译
+          clang-15 \
             -arch arm64 \
-            -isysroot ${{ env.SDK_PATH }} \
-            -miphoneos-version-min=14.0 \
+            -isysroot ${{ env.IOS_SDK_PATH }} \
             -fPIC -shared \
             -framework Foundation -framework UIKit \
+            -Wno-deprecated-declarations \
             inject_test.c \
-            -o inject_test.dylib \
-            -v  # -v 参数会打印详细编译过程，方便出错时看日志
+            -o inject_test.dylib
+            
+          # 检查文件是否生成
+          ls -lh inject_test.dylib
+          file inject_test.dylib
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: inject-dylib-output
+          name: iOS-Inject-Dylib
           path: inject_test.dylib
