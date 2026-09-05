@@ -34,7 +34,7 @@ jobs:
 
           # 5. 编译 osxcross 工具链
           cd $GITHUB_WORKSPACE/osxcross
-          UNATTENDED=yes ./build.sh
+          UNATTENDED=1 ./build.sh
 
       - name: Compile Dylib
         run: |
