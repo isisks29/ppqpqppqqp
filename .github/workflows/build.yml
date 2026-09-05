@@ -23,8 +23,8 @@ jobs:
 
       - name: Download iOS SDK
         run: |
-          # 下载 iPhoneOS SDK
-          git clone --depth 1 --branch 15.0 https://github.com/xybp888/iOS-SDKs.git /tmp/iOS-SDKs
+          # 修正分支名为 iOS15.0
+          git clone --depth 1 --branch iOS15.0 https://github.com/xybp888/iOS-SDKs.git /tmp/iOS-SDKs
           # 找到 SDK 路径
           SDK_PATH=$(find /tmp/iOS-SDKs -maxdepth 1 -name "iPhoneOS*.sdk" -type d | head -1)
           echo "SDK_PATH=$SDK_PATH" >> $GITHUB_ENV
