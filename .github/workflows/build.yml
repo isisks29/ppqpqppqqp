@@ -19,7 +19,8 @@ jobs:
       - name: Compile iOS Dylib
         run: |
           SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
-          clang -target arm64-apple-ios15.0 \
+          # 关键修正：使用 xcrun clang 而不是 clang
+          xcrun clang -target arm64-apple-ios15.0 \
             -isysroot "$SDK_PATH" \
             -dynamiclib \
             -fobjc-arc \
