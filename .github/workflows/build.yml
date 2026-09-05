@@ -18,40 +18,53 @@ jobs:
 
       - name: Prepare Environment & SDK
         run: |
-          # 1. 安装基础编译工具和 ldid (用于签名)
+          # 1. 安装基础工具 (clang, git, cmake, g++)
           sudo apt-get update
-          sudo apt-get install -y clang ldid git
+          sudo apt-get install -y clang git cmake g++ make
           
-          # 2. 下载 SDK (使用 xybp888 的仓库)
+          # 2. 下载 iOS SDK (使用 xybp888 的仓库)
           echo "Downloading iOS SDK..."
           git clone --depth 1 https://github.com/xybp888/iOS-SDKs.git $GITHUB_WORKSPACE/ios-sdk
           
-          # 3. 自动寻找 SDK 路径
+          # 3. 自动寻找 SDK 路径 (适配 iPhoneOS16.5 等版本)
           SDK_PATH=$(find $GITHUB_WORKSPACE/ios-sdk -maxdepth 3 -type d -name '*iPhoneOS*' | head -n 1)
           echo "Found SDK at: $SDK_PATH"
           
-          # 将路径保存为环境变量供下一步使用
-          echo "SDK_PATH=$SDK_PATH" >> $GITHUB_ENV
-
-      - name: Compile Dylib
-        run: |
-          # 使用系统自带的 clang 进行交叉编译
-          # 注意：这里必须指定 -target arm64-apple-ios
-          clang -arch arm64 \
-                -isysroot $SDK_PATH \
-                -mios-version-min=13.0 \
-                -dynamiclib \
-                -fobjc-arc \
-                -o inject_test.dylib \
-                inject_test.c
+          # 4. 提取头文件路径 (解决 UIKit not found 问题)
+          INCLUDE_PATH="$SDK_PATH/System/Library/Frameworks"
           
-          echo "Compilation finished."
+          # 5. 编译 dylib (使用系统自带 clang)
+          echo "Compiling dylib..."
+          clang -arch arm64 \
+            -isysroot "$SDK_PATH" \
+            -I"$INCLUDE_PATH" \
+            -mios-version-min=13.0 \
+            -dynamiclib \
+            -fobjc-arc \
+            -o inject_test.dylib \
+            inject_test.c
+            
+          echo "Compilation successful!"
 
-      - name: Sign Dylib (Optional but recommended)
+      - name: Build & Install ldid
         run: |
-          # 使用 ldid 进行伪签名，确保在越狱设备上能加载
+          # 6. 因为 apt 源里没有 ldid，我们现场编译一个
+          echo "Building ldid from source..."
+          git clone https://github.com/ProcursusTeam/ldid.git
+          cd ldid
+          mkdir build && cd build
+          cmake ..
+          make
+          sudo cp ldid /usr/local/bin/
+          cd ../..
+          echo "ldid installed successfully!"
+
+      - name: Sign Dylib
+        run: |
+          # 7. 使用 ldid 签名 (注入 entitlements)
+          echo "Signing dylib with ldid..."
           ldid -S inject_test.dylib
-          echo "Signing finished."
+          echo "Signing complete!"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
